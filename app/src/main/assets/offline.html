@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sem conexão</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b1f3a; color: #fff; font-family: Roboto, Arial, sans-serif; }
+  .box { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 5%; }
+  h1 { font-size: 2.2em; margin: 0 0 .4em; }
+  p { font-size: 1.3em; opacity: .85; margin: .2em 0; }
+  button { margin-top: 1.4em; font-size: 1.3em; padding: .6em 1.6em; border: 0; border-radius: 8px; background: #19a7ce; color: #fff; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Sem conexão com a internet</h1>
+  <p>Não foi possível abrir o Halley Play.</p>
+  <p>Verifique o Wi-Fi ou o cabo de rede da TV. Vamos tentar de novo automaticamente.</p>
+  <button onclick="tentar()">Tentar novamente</button>
+</div>
+<script>
+  var SITE = "https://play.halleytelecom.com.br";
+  function tentar() { window.location.href = SITE; }
+  setTimeout(tentar, 8000);
+</script>
+</body>
+</html>
