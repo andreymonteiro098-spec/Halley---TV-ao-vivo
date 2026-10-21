@@ -2,6 +2,7 @@ package br.com.halleytelecom.play;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -13,7 +14,9 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -23,6 +26,9 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Locale;
 
 /**
@@ -46,7 +52,8 @@ public class MainActivity extends Activity {
     private View customView;
     private WebChromeClient.CustomViewCallback customViewCallback;
 
-    private boolean pointerMode = true;
+    private boolean pointerMode = false;
+    private String navScript = "";
     private boolean longPressHandled = false;
     private long centerDownTime = 0L;
     private long lastBackPress = 0L;
@@ -74,7 +81,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -87,13 +95,17 @@ public class MainActivity extends Activity {
         root.addView(pointer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
+        pointer.setVisibility(View.INVISIBLE); // cursor de mouse começa desligado
+
+        navScript = readAsset("tvnav.js");
+
         setContentView(root);
         configureWebView();
         webView.requestFocus();
         webView.loadUrl(SITE_URL);
 
         Toast.makeText(this,
-                "Setas movem o cursor, OK clica. Segure OK por 1 segundo para trocar o modo.",
+                "Use as setas e o OK para navegar. Segure OK por 1 segundo para ligar/desligar o cursor de mouse.",
                 Toast.LENGTH_LONG).show();
     }
 
@@ -114,11 +126,20 @@ public class MainActivity extends Activity {
         cookies.setAcceptThirdPartyCookies(webView, true);
 
         webView.setBackgroundColor(Color.BLACK);
+        webView.addJavascriptInterface(new TvBridge(), "TvBridge");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return false; // mantém toda a navegação dentro do app
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                // Liga a navegação por setas/OK em cada página do site
+                if (url != null && url.startsWith("http") && !navScript.isEmpty()) {
+                    view.evaluateJavascript(navScript, null);
+                }
             }
 
             @Override
@@ -161,6 +182,38 @@ public class MainActivity extends Activity {
             customViewCallback = null;
         }
         webView.requestFocus();
+    }
+
+    private String readAsset(String name) {
+        try (InputStream in = getAssets().open(name);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+            }
+            return out.toString("UTF-8");
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
+    /** Ponte usada pelo script de navegação para abrir o teclado da TV em campos de texto. */
+    public class TvBridge {
+        @JavascriptInterface
+        public void showKeyboard() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    webView.requestFocus();
+                    InputMethodManager imm =
+                            (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                    if (imm != null) {
+                        imm.showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT);
+                    }
+                }
+            });
+        }
     }
 
     // ---------------------------------------------------------------- controle remoto
@@ -365,6 +418,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         webView.onResume();
+        enterImmersive();
     }
 
     @Override
